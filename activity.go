@@ -17,27 +17,19 @@ const (
 	QueueDefaultLength = 1000
 )
 
+// comment with labelled id and status
 type LabelComment struct {
-	Id      int
-	Status  int
-	Comment Comment
+	Id         int
+	Status     int
+	Type       string
+	Content    string
+	Attributes map[string]string
 }
 
-// create new activity with customized name
-func NewActivity(name string) *Activity {
-	return &Activity{
-		Name:          name,
-		Dict:          make(map[int]*LabelComment),
-		InitialQueue:  make([]*LabelComment, 0, QueueDefaultLength),
-		ApprovedQueue: make([]*LabelComment, 0, QueueDefaultLength),
-	}
-}
-
-// Activity struct
-type Activity struct {
+// BasicActivity struct
+type BasicActivity struct {
 	mutex          sync.Mutex
-	Name           string
-	Dict           map[int]*LabelComment
+	CommentMap     map[int]*LabelComment
 	InitialQueue   []*LabelComment
 	ApprovedQueue  []*LabelComment
 	TotalCount     int
@@ -47,20 +39,20 @@ type Activity struct {
 }
 
 // add a comment, initialized with an unique id and Initial status
-func (act *Activity) Add(c Comment) *LabelComment {
+func (act *BasicActivity) Add(c Comment) *LabelComment {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
 	act.TotalCount++
 	id := act.TotalCount
-	lc := &LabelComment{Id: id, Comment: c, Status: CommentStatusInitial}
-	act.Dict[id] = lc
+	lc := &LabelComment{Id: id, Type: c.Type(), Content: c.Content(), Attributes: c.Attributes(), Status: CommentStatusInitial}
+	act.CommentMap[id] = lc
 	act.InitialQueue = append(act.InitialQueue, lc)
 	return lc
 }
 
 // get comments with Initial status for reviewing, and then change their status to Pending
-func (act *Activity) Review() (r []*LabelComment) {
+func (act *BasicActivity) Review() (r []*LabelComment) {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
@@ -73,7 +65,7 @@ func (act *Activity) Review() (r []*LabelComment) {
 }
 
 // approve comments, that is, change their status to Approved
-func (act *Activity) Approve(lcs []*LabelComment) {
+func (act *BasicActivity) Approve(lcs []*LabelComment) {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
@@ -86,7 +78,7 @@ func (act *Activity) Approve(lcs []*LabelComment) {
 }
 
 // deny comments, that is, change their status to Denied
-func (act *Activity) Deny(lcs []*LabelComment) {
+func (act *BasicActivity) Deny(lcs []*LabelComment) {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
@@ -97,7 +89,7 @@ func (act *Activity) Deny(lcs []*LabelComment) {
 }
 
 // get comments with Approved status for displaying, then change their status to Displayed
-func (act *Activity) Display() (r []*LabelComment) {
+func (act *BasicActivity) Display() (r []*LabelComment) {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
@@ -111,13 +103,13 @@ func (act *Activity) Display() (r []*LabelComment) {
 }
 
 // get comments by their ids
-func (act *Activity) Fetch(ids []int) (r []*LabelComment) {
+func (act *BasicActivity) Fetch(ids []int) (r []*LabelComment) {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
 	r = make([]*LabelComment, 0, len(ids))
 	for _, id := range ids {
-		if d, ok := act.Dict[id]; ok {
+		if d, ok := act.CommentMap[id]; ok {
 			r = append(r, d)
 		}
 	}
@@ -125,7 +117,7 @@ func (act *Activity) Fetch(ids []int) (r []*LabelComment) {
 }
 
 // reset the activity
-func (act *Activity) Reset() {
+func (act *BasicActivity) Reset() {
 	act.mutex.Lock()
 	defer act.mutex.Unlock()
 
@@ -134,7 +126,7 @@ func (act *Activity) Reset() {
 	act.DeniedCount = 0
 	act.DisplayedCount = 0
 
-	act.Dict = make(map[int]*LabelComment)
+	act.CommentMap = make(map[int]*LabelComment)
 	act.InitialQueue = make([]*LabelComment, 0, QueueDefaultLength)
 	act.ApprovedQueue = make([]*LabelComment, 0, QueueDefaultLength)
 }

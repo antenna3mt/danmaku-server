@@ -4,3 +4,7 @@
 package main
 
 // TODO
+
+type DanmakuService struct {
+	E Engine
+}

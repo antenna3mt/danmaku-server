@@ -13,3 +13,12 @@ func NewAuthToken(len int) string {
 	rand.Read(b[:])
 	return fmt.Sprintf("%x", b[:])[:len]
 }
+
+func IsOneOf(a interface{}, bs ...interface{}) bool {
+	for _, b := range bs {
+		if a == b {
+			return true
+		}
+	}
+	return false
+}

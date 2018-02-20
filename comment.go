@@ -7,7 +7,12 @@ package main
 Comment interface
 */
 
-func NewComment(tp string, attr map[string]string) (Comment, bool) {
+func NewComment(attr map[string]string) (Comment, bool) {
+	tp, ok := attr["type"]
+	if !ok {
+		return nil, false
+	}
+	
 	switch tp {
 	case "text":
 		return NewTextCommentFromMap(attr)

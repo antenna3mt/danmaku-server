@@ -22,7 +22,6 @@ var (
 // activity extend BasicActivity
 type Activity struct {
 	BasicActivity
-
 	Id           int
 	Name         string
 	CommentToken string
@@ -59,7 +58,11 @@ func (e *Engine) newToken() string {
 }
 
 // create a activity with name and add it to engine
-func (e *Engine) NewActivity(name string) *Activity {
+func (e *Engine) NewActivity(auth_token string, name string) (*Activity, error) {
+	if !IsOneOf(auth_token, e.AdminToken) {
+		return nil, NotAuthorizedError
+	}
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -83,7 +86,7 @@ func (e *Engine) NewActivity(name string) *Activity {
 	e.TokenMap[act.CommentToken] = act
 	e.TokenMap[act.ReviewToken] = act
 	e.TokenMap[act.DisplayToken] = act
-	return act
+	return act, nil
 }
 
 // get activity by token
@@ -136,8 +139,36 @@ func (e *Engine) RenameActivity(auth_token string, id int, name string) (error) 
 	return nil
 }
 
+// turn review on; action permit: admin
+func (e *Engine) ReviewOn(auth_token string, id int) (error) {
+	if !IsOneOf(auth_token, e.AdminToken) {
+		return NotAuthorizedError
+	}
+
+	act, ok := e.ActivityMap[id]
+	if !ok {
+		return NotExistError
+	}
+	act.ReviewOn = true
+	return nil
+}
+
+// turn review Off; action permit: admin
+func (e *Engine) ReviewOff(auth_token string, id int) (error) {
+	if !IsOneOf(auth_token, e.AdminToken) {
+		return NotAuthorizedError
+	}
+
+	act, ok := e.ActivityMap[id]
+	if !ok {
+		return NotExistError
+	}
+	act.ReviewOn = false
+	return nil
+}
+
 // push a comment; action permit: comment, review, display
-func (e *Engine) Push(auth_token string, attr map[string]string) (*LabelComment, error) {
+func (e *Engine) Push(auth_token string, tp string, attr map[string]string) (*LabelComment, error) {
 	act, ok := e.ActivityByToken(auth_token)
 	if !ok {
 		return nil, NotExistError
@@ -147,12 +178,15 @@ func (e *Engine) Push(auth_token string, attr map[string]string) (*LabelComment,
 		return nil, NotAuthorizedError
 	}
 
-	c, ok := NewComment(attr)
+	c, ok := NewComment(tp, attr)
 	if !ok {
 		return nil, IllFormatError
 	}
 
-	return act.Add(c), nil
+	lc := act.Add(c)
+	act.Approve(act.Review())
+
+	return lc, nil
 }
 
 // review; action permit: review

@@ -16,9 +16,11 @@ func TokenMatch(e *Engine, act *Activity, token string) bool {
 func TestEngine_Admin(t *testing.T) {
 	e := NewEngine()
 
-	act1 := e.NewActivity("First")
+	act1, err := e.NewActivity(e.AdminToken, "First")
+	assert.Nil(t, err)
 	assert.Equal(t, e.IdCount, act1.Id)
-	act2 := e.NewActivity("Second")
+	act2, err := e.NewActivity(e.AdminToken, "Second")
+	assert.Nil(t, err)
 	assert.Equal(t, e.IdCount, act2.Id)
 
 	assert.True(t, TokenMatch(e, act1, act1.DisplayToken))
@@ -28,7 +30,7 @@ func TestEngine_Admin(t *testing.T) {
 	assert.True(t, TokenMatch(e, act2, act2.ReviewToken))
 	assert.True(t, TokenMatch(e, act2, act2.CommentToken))
 
-	_, err := e.Activities("")
+	_, err = e.Activities("")
 	assert.Error(t, err)
 	acts, err := e.Activities(e.AdminToken)
 	assert.Nil(t, err)
@@ -48,9 +50,10 @@ func TestEngine_Admin(t *testing.T) {
 
 func TestEngine_Activity(t *testing.T) {
 	e := NewEngine()
-	act := e.NewActivity("Hello")
+	act, err := e.NewActivity(e.AdminToken, "Hello")
+	assert.Nil(t, err)
 
-	lc, err := e.Push(act.CommentToken, map[string]string{"type": "text", "text": "Hello", "color": "red"})
+	lc, err := e.Push(act.CommentToken, "text", map[string]string{"text": "Hello", "color": "red"})
 
 	assert.Nil(t, err)
 	assert.Equal(t, "text", lc.Type)

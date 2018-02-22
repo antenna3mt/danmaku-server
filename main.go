@@ -13,6 +13,7 @@ import (
 
 func main() {
 	engine := NewEngine()
+	engine.NewActivityFull(engine.AdminToken, "Test Activity", "cc123456", "rr123456", "dd123456")
 	fmt.Println(engine.AdminToken)
 	server, err := rpc.NewServer(new(Context))
 	if err != nil {

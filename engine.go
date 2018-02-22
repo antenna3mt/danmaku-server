@@ -17,6 +17,7 @@ var (
 	NotAuthorizedError = fmt.Errorf("not authorized")
 	NotExistError      = fmt.Errorf("not exist")
 	IllFormatError     = fmt.Errorf("ill format")
+	AlreadyExistError  = fmt.Errorf("already exist")
 )
 
 // activity extend BasicActivity
@@ -58,14 +59,14 @@ func (e *Engine) newToken() string {
 }
 
 // login
-func (e *Engine) Login(auth_token string) (string, error) {
-	if auth_token == e.AdminToken {
+func (e *Engine) Login(authToken string) (string, error) {
+	if authToken == e.AdminToken {
 		return "admin", nil
 	}
 
-	act, ok := e.ActivityByToken(auth_token)
+	act, ok := e.ActivityByToken(authToken)
 	if ok {
-		switch auth_token {
+		switch authToken {
 		case act.CommentToken:
 			return "comment", nil
 		case act.ReviewToken:
@@ -78,9 +79,26 @@ func (e *Engine) Login(auth_token string) (string, error) {
 }
 
 // create a activity with name and add it to engine
-func (e *Engine) NewActivity(auth_token string, name string) (*Activity, error) {
-	if !IsOneOf(auth_token, e.AdminToken) {
+func (e *Engine) NewActivity(authToken string, name string) (*Activity, error) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return nil, NotAuthorizedError
+	}
+	return e.NewActivityFull(authToken, name, e.newToken(), e.newToken(), e.newToken())
+}
+
+// create a activity with name and add it to engine
+func (e *Engine) NewActivityFull(authToken string, name string, commentToken string, reviewToken string, displayToken string) (*Activity, error) {
+	if !IsOneOf(authToken, e.AdminToken) {
+		return nil, NotAuthorizedError
+	}
+	if _, ok := e.TokenMap[commentToken]; ok {
+		return nil, AlreadyExistError
+	}
+	if _, ok := e.TokenMap[reviewToken]; ok {
+		return nil, AlreadyExistError
+	}
+	if _, ok := e.TokenMap[displayToken]; ok {
+		return nil, AlreadyExistError
 	}
 
 	e.mutex.Lock()
@@ -96,9 +114,9 @@ func (e *Engine) NewActivity(auth_token string, name string) (*Activity, error) 
 		},
 		Id:           id,
 		Name:         name,
-		CommentToken: e.newToken(),
-		ReviewToken:  e.newToken(),
-		DisplayToken: e.newToken(),
+		CommentToken: commentToken,
+		ReviewToken:  reviewToken,
+		DisplayToken: displayToken,
 		ReviewOn:     true,
 	}
 
@@ -116,8 +134,8 @@ func (e *Engine) ActivityByToken(token string) (*Activity, bool) {
 }
 
 // all activity; action permit: admin
-func (e *Engine) Activities(auth_token string) ([]*Activity, error) {
-	if !IsOneOf(auth_token, e.AdminToken) {
+func (e *Engine) Activities(authToken string) ([]*Activity, error) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return nil, NotAuthorizedError
 	}
 
@@ -129,8 +147,8 @@ func (e *Engine) Activities(auth_token string) ([]*Activity, error) {
 }
 
 // delete activity by id; action permit: admin
-func (e *Engine) DelActivity(auth_token string, id int) (error) {
-	if !IsOneOf(auth_token, e.AdminToken) {
+func (e *Engine) DelActivity(authToken string, id int) (error) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return NotAuthorizedError
 	}
 
@@ -146,8 +164,8 @@ func (e *Engine) DelActivity(auth_token string, id int) (error) {
 }
 
 // rename activity by id; action permit: admin
-func (e *Engine) RenameActivity(auth_token string, id int, name string) (error) {
-	if !IsOneOf(auth_token, e.AdminToken) {
+func (e *Engine) RenameActivity(authToken string, id int, name string) (error) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return NotAuthorizedError
 	}
 
@@ -160,8 +178,8 @@ func (e *Engine) RenameActivity(auth_token string, id int, name string) (error) 
 }
 
 // turn review on; action permit: admin
-func (e *Engine) ReviewOn(auth_token string, id int) (error) {
-	if !IsOneOf(auth_token, e.AdminToken) {
+func (e *Engine) ReviewOn(authToken string, id int) (error) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return NotAuthorizedError
 	}
 
@@ -174,8 +192,8 @@ func (e *Engine) ReviewOn(auth_token string, id int) (error) {
 }
 
 // turn review Off; action permit: admin
-func (e *Engine) ReviewOff(auth_token string, id int) (error) {
-	if !IsOneOf(auth_token, e.AdminToken) {
+func (e *Engine) ReviewOff(authToken string, id int) (error) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return NotAuthorizedError
 	}
 
@@ -188,13 +206,13 @@ func (e *Engine) ReviewOff(auth_token string, id int) (error) {
 }
 
 // push a comment; action permit: comment, review, display
-func (e *Engine) Push(auth_token string, tp string, attr map[string]string) (*LabelComment, error) {
-	act, ok := e.ActivityByToken(auth_token)
+func (e *Engine) Push(authToken string, tp string, attr map[string]string) (*LabelComment, error) {
+	act, ok := e.ActivityByToken(authToken)
 	if !ok {
 		return nil, NotExistError
 	}
 
-	if !IsOneOf(auth_token, act.CommentToken, act.ReviewToken, act.DisplayToken) {
+	if !IsOneOf(authToken, act.CommentToken, act.ReviewToken, act.DisplayToken) {
 		return nil, NotAuthorizedError
 	}
 
@@ -204,19 +222,22 @@ func (e *Engine) Push(auth_token string, tp string, attr map[string]string) (*La
 	}
 
 	lc := act.Add(c)
-	act.Approve(act.Review())
+
+	if !act.ReviewOn {
+		act.Approve(act.Review())
+	}
 
 	return lc, nil
 }
 
 // review; action permit: review
-func (e *Engine) Review(auth_token string) ([]*LabelComment, error) {
-	act, ok := e.ActivityByToken(auth_token)
+func (e *Engine) Review(authToken string) ([]*LabelComment, error) {
+	act, ok := e.ActivityByToken(authToken)
 	if !ok {
 		return nil, NotExistError
 	}
 
-	if !IsOneOf(auth_token, act.ReviewToken) {
+	if !IsOneOf(authToken, act.ReviewToken) {
 		return nil, NotAuthorizedError
 	}
 
@@ -224,13 +245,13 @@ func (e *Engine) Review(auth_token string) ([]*LabelComment, error) {
 }
 
 // approve; action permit: review
-func (e *Engine) Approve(auth_token string, ids []int) (error) {
-	act, ok := e.ActivityByToken(auth_token)
+func (e *Engine) Approve(authToken string, ids []int) (error) {
+	act, ok := e.ActivityByToken(authToken)
 	if !ok {
 		return NotExistError
 	}
 
-	if !IsOneOf(auth_token, act.ReviewToken) {
+	if !IsOneOf(authToken, act.ReviewToken) {
 		return NotAuthorizedError
 	}
 
@@ -240,13 +261,13 @@ func (e *Engine) Approve(auth_token string, ids []int) (error) {
 }
 
 // deny; action permit: review
-func (e *Engine) Deny(auth_token string, ids []int) (error) {
-	act, ok := e.ActivityByToken(auth_token)
+func (e *Engine) Deny(authToken string, ids []int) (error) {
+	act, ok := e.ActivityByToken(authToken)
 	if !ok {
 		return NotExistError
 	}
 
-	if !IsOneOf(auth_token, act.ReviewToken) {
+	if !IsOneOf(authToken, act.ReviewToken) {
 		return NotAuthorizedError
 	}
 
@@ -256,13 +277,13 @@ func (e *Engine) Deny(auth_token string, ids []int) (error) {
 }
 
 // display; action permit: display
-func (e *Engine) Display(auth_token string) ([]*LabelComment, error) {
-	act, ok := e.ActivityByToken(auth_token)
+func (e *Engine) Display(authToken string) ([]*LabelComment, error) {
+	act, ok := e.ActivityByToken(authToken)
 	if !ok {
 		return nil, NotExistError
 	}
 
-	if !IsOneOf(auth_token, act.DisplayToken) {
+	if !IsOneOf(authToken, act.DisplayToken) {
 		return nil, NotAuthorizedError
 	}
 
@@ -270,13 +291,13 @@ func (e *Engine) Display(auth_token string) ([]*LabelComment, error) {
 }
 
 // reset; action permit: admin
-func (e *Engine) Reset(auth_token string) (error) {
-	act, ok := e.ActivityByToken(auth_token)
+func (e *Engine) Reset(authToken string) (error) {
+	act, ok := e.ActivityByToken(authToken)
 	if !ok {
 		return NotExistError
 	}
 
-	if !IsOneOf(auth_token, e.AdminToken) {
+	if !IsOneOf(authToken, e.AdminToken) {
 		return NotAuthorizedError
 	}
 	act.Reset()

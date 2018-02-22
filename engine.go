@@ -57,6 +57,26 @@ func (e *Engine) newToken() string {
 	}
 }
 
+// login
+func (e *Engine) Login(auth_token string) (string, error) {
+	if auth_token == e.AdminToken {
+		return "admin", nil
+	}
+
+	act, ok := e.ActivityByToken(auth_token)
+	if ok {
+		switch auth_token {
+		case act.CommentToken:
+			return "comment", nil
+		case act.ReviewToken:
+			return "review", nil
+		case act.DisplayToken:
+			return "display", nil
+		}
+	}
+	return "", NotAuthorizedError
+}
+
 // create a activity with name and add it to engine
 func (e *Engine) NewActivity(auth_token string, name string) (*Activity, error) {
 	if !IsOneOf(auth_token, e.AdminToken) {

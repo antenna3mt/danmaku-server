@@ -80,6 +80,20 @@ type DanmakuService struct {
 	E *Engine
 }
 
+func (s *DanmakuService) Login(ctx *Context,
+	args *struct {
+		Token string
+	}, reply *struct {
+		Type string
+	}) error {
+	tp, err := s.E.Login(args.Token)
+	if err != nil {
+		return err
+	}
+	reply.Type = tp
+	return nil
+}
+
 // new activity
 func (s *DanmakuService) NewActivity(ctx *Context,
 	args *struct {

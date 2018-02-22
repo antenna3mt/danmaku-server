@@ -84,7 +84,7 @@ func (s *DanmakuService) Login(ctx *Context,
 	args *struct {
 		Token string
 	}, reply *struct {
-		Type string
+		Type string `json:"type"`
 	}) error {
 	tp, err := s.E.Login(args.Token)
 	if err != nil {

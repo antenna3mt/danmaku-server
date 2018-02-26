@@ -19,3 +19,4 @@
 .DS_Store
 main
 danmaku-server-docker
+/danmaku-server

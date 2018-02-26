@@ -5,7 +5,8 @@ package main
 
 import (
 	"sync"
-	"fmt"
+	"github.com/antenna3mt/rpc/json"
+	"net/http"
 )
 
 const (
@@ -14,10 +15,10 @@ const (
 )
 
 var (
-	NotAuthorizedError = fmt.Errorf("not authorized")
-	NotExistError      = fmt.Errorf("not exist")
-	IllFormatError     = fmt.Errorf("ill format")
-	AlreadyExistError  = fmt.Errorf("already exist")
+	NotAuthorizedError = &json.Error{Code: http.StatusUnauthorized, Message: "not authorized",}
+	NotExistError      = &json.Error{Code: http.StatusNotFound, Message: "not exist",}
+	IllFormatError     = &json.Error{Code: http.StatusBadRequest, Message: "ill format",}
+	AlreadyExistError  = &json.Error{Code: http.StatusConflict, Message: "alread exist",}
 )
 
 // activity extend BasicActivity
@@ -205,6 +206,20 @@ func (e *Engine) ReviewOff(authToken string, id int) (error) {
 	return nil
 }
 
+// reset; action permit: admin
+func (e *Engine) Reset(authToken string, id int) (error) {
+	if !IsOneOf(authToken, e.AdminToken) {
+		return NotAuthorizedError
+	}
+
+	act, ok := e.ActivityMap[id]
+	if !ok {
+		return NotExistError
+	}
+	act.Reset()
+	return nil
+}
+
 // push a comment; action permit: comment, review, display
 func (e *Engine) Push(authToken string, tp string, attr map[string]string) (*LabelComment, error) {
 	act, ok := e.ActivityByToken(authToken)
@@ -288,18 +303,4 @@ func (e *Engine) Display(authToken string) ([]*LabelComment, error) {
 	}
 
 	return act.Display(), nil
-}
-
-// reset; action permit: admin
-func (e *Engine) Reset(authToken string) (error) {
-	act, ok := e.ActivityByToken(authToken)
-	if !ok {
-		return NotExistError
-	}
-
-	if !IsOneOf(authToken, e.AdminToken) {
-		return NotAuthorizedError
-	}
-	act.Reset()
-	return nil
 }

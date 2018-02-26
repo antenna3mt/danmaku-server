@@ -46,7 +46,7 @@ func FlattenActivity(act *Activity) *FlatActivity {
 		TotalCount:     act.TotalCount,
 		ApprovedCount:  act.ApprovedCount,
 		DeniedCount:    act.DeniedCount,
-		DisplayedCount: act.DeniedCount,
+		DisplayedCount: act.DisplayedCount,
 	}
 }
 
@@ -66,7 +66,7 @@ func FlattenActivityDigest(act *Activity) *FlatActivityDigest {
 		TotalCount:     act.TotalCount,
 		ApprovedCount:  act.ApprovedCount,
 		DeniedCount:    act.DeniedCount,
-		DisplayedCount: act.DeniedCount,
+		DisplayedCount: act.DisplayedCount,
 	}
 }
 
@@ -274,8 +274,9 @@ func (s *DanmakuService) Display(ctx *Context,
 func (s *DanmakuService) Reset(ctx *Context,
 	args *struct {
 		Token string
+		Id    int
 	}, reply *struct{}) error {
-	err := s.E.Reset(args.Token)
+	err := s.E.Reset(args.Token, args.Id)
 	if err != nil {
 		return err
 	}

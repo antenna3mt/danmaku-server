@@ -9,6 +9,7 @@ import (
 	"github.com/antenna3mt/rpc/json"
 	"net/http"
 	"fmt"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -23,7 +24,7 @@ func main() {
 	server.RegisterService(&DanmakuService{
 		E: engine,
 	}, "")
-	http.Handle("/", server)
+	http.Handle("/", cors.Default().Handler(server))
 	if err := http.ListenAndServe(":8881", nil); err != nil {
 		log.Fatal(err)
 	}
